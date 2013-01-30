@@ -19,11 +19,11 @@ def move(file):
 		#print 'move 百度音乐 %s to %s' % (file,newName)
 		#shutil.move('/data/下载/'+file,'/data/音乐/'+newName)
 	# pdf,chm
-	elif re.match(r'^.*\.[chm|pdf]$',file):
+	elif re.match(r'^.*\.(chm|pdf)$',file):
 		print 'move %s to documents' % file
 		shutil.move('/data/下载/'+file,'/data/文档/')
 	# 图片
-	elif re.match(r'^.*\.[png|jpg|gif]$',file):
+	elif re.match(r'^.*\.(png|jpg|gif)$',file):
 		print 'move %s to picture' % file
 		shutil.move('/data/下载/'+file,'/data/图片/图片/')
 	# 韩顺平jsp
