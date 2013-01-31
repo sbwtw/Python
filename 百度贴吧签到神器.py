@@ -13,15 +13,37 @@ import time
 import urllib
 import urllib2
 import cookielib
+import threading
 
 # headers
 headers={}
 headers['User-Agent']=''
 
+# 每个线程共享的数据
+lock=threading.Lock()
+bars={}
+
 # 绑定cookie到opener
 cookie=cookielib.MozillaCookieJar('cookie')
 opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cookie))
 urllib2.install_opener(opener)
+
+# 每个签到的线程
+class thread(threading.Thread):
+	def __init__(self,lock,bars):
+		self.bars=bars
+		self.lock=lock
+		threading.Thread.__init__(self)
+	def run(self):
+		for bar in bars:
+			lock.acquire()
+			if bars[bar]:
+				bars[bar]=False
+				lock.release()
+				print sign(bar)
+			else:
+				lock.release()
+	# ==End==
 
 # 返回10位数的时间戳
 def getTime():
@@ -107,17 +129,20 @@ def getBars():
 		headers=headers
 	)
 	res=urllib2.urlopen(req)
-	bars=re.findall(r'(?:\d+\.<a href="[^"]+">)([^<]+)(?:</a>)',res.read())
-	if bars:
-		print '读取完毕,共%d个吧需要签到' % len(bars)
+	barList=re.findall(r'(?:\d+\.<a href="[^"]+">)([^<]+)(?:</a>)',res.read())
+	if barList:
+		print '读取完毕,共%d个吧需要签到' % len(barList)
+		# 将列表转换为字典
+		global bars
+		for bar in barList:
+			bars[bar]=True
 	else:
 		print '贴吧列表读取失败.'
 		return None
-	return bars
+	return True
 
 # 签到函数,因为此函数经常访问网络,所以加上超时处理
 def sign(bar):
-	print '进入%s吧' % bar
 	headers['Referer']='http://wapp.baidu.com/f/m?kw='+bar
 	req=urllib2.Request(
 		url='http://wapp.baidu.com/f/?kw='+urllib.quote(bar),
@@ -126,15 +151,12 @@ def sign(bar):
 	try:
 		res=urllib2.urlopen(req,timeout=10)
 		res=res.read()
-	except urllib2.URLError:
-		print '访问超时!'
-		sign(bar)
-		return True
+	except:
+		return sign(bar)
 	# 签到地址
 	addr=re.search(r'(?<=<a href=")[^"]+(?=">签到)',res)
 	if not addr:
-		print '已签到\n'
-		return True
+		return '%s吧已签到\n' % bar
 	# 替换 'amp;' 不然无法签到
 	addr=re.sub(r'amp;','',addr.group())
 	url='http://wapp.baidu.com'+addr
@@ -145,16 +167,12 @@ def sign(bar):
 	try:
 		res=urllib2.urlopen(req,timeout=10)
 		res=res.read()
-	except urllib2.URLError:
-		print '访问超时!'
-		sign(bar)
-		return True
+	except:
+		return sign(bar)
 	success=re.search(r'(?<="light">)\d(?=<\/span>)',res)
 	if not success:
-		print '%s吧,未知错误' % bar
-		return None
-	print '%s吧签到成功,经验+%s\n' % (bar,success.group())
-	return True
+		return '%s吧,未知错误\n' % bar
+	return '%s吧签到成功,经验+%s\n' % (bar,success.group())
 	#	sign End
 
 # 启动函数
@@ -170,11 +188,14 @@ def init():
 		if not login(usr,pwd):
 			return None
 	# 拉取吧列表
-	bars=getBars()
+	global bars
+	getBars()
 	if bars:
-		# 开始签到
-		for bar in bars:
-			sign(bar)
+		global lock
+		# 开始签到,设置5个线程
+		for i in range(5):
+			newThread=thread(lock,bars)
+			newThread.start()
 	else:
 		return None
 
