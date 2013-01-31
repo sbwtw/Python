@@ -15,9 +15,8 @@ import urllib2
 import cookielib
 
 # headers
-headers={
-	'User-Agent':''
-}
+headers={}
+headers['User-Agent']=''
 
 # 绑定cookie到opener
 cookie=cookielib.MozillaCookieJar('cookie')
@@ -102,50 +101,40 @@ def login(usr,pwd):
 
 # 拉取'我喜欢的吧'列表
 def getBars():
-	# 贴吧列表
-	bars=[]
 	print '拉取贴吧列表.'
-	# 记录拉取了几页
-	count=1
-	while True:
-		req=urllib2.Request(
-			url='http://tieba.baidu.com/f/like/mylike?&pn='+str(count),
-			headers=headers
-		)
-		res=urllib2.urlopen(req)
-		# 此页面编码为gbk
-		res=res.read().decode('gbk','ignore')
-		getBars=re.findall(r'(?:<a href="[^"]+" title=")([^"]+)(?:">\1</a>)',res)
-		if getBars:
-			bars+=getBars
-			print '第%d页分析完毕.' % count
-			count+=1
-		else:
-			break
+	req=urllib2.Request(
+		url='http://wapp.baidu.com/m?tn=bdFBW&tab=favorite',
+		headers=headers
+	)
+	res=urllib2.urlopen(req)
+	bars=re.findall(r'(?:\d+\.<a href="[^"]+">)([^<]+)(?:</a>)',res.read())
 	if bars:
-		print '拉取完毕,共%d个吧需要签到' % len(bars)
+		print '读取完毕,共%d个吧需要签到' % len(bars)
 	else:
-		print '拉取贴吧列表失败.'
+		print '贴吧列表读取失败.'
 		return None
 	return bars
 
-# 签到函数
+# 签到函数,因为此函数经常访问网络,所以加上超时处理
 def sign(bar):
-	# 解码,不然无法打开
-	bar=bar.encode('utf8')
 	print '进入%s吧' % bar
 	headers['Referer']='http://wapp.baidu.com/f/m?kw='+bar
 	req=urllib2.Request(
 		url='http://wapp.baidu.com/f/?kw='+urllib.quote(bar),
 		headers=headers
 	)
-	res=urllib2.urlopen(req)
-	res=res.read()
+	try:
+		res=urllib2.urlopen(req,timeout=10)
+		res=res.read()
+	except urllib2.URLError:
+		print '访问超时!'
+		sign(bar)
+		return True
 	# 签到地址
 	addr=re.search(r'(?<=<a href=")[^"]+(?=">签到)',res)
 	if not addr:
-		print '无法签到\n'
-		return
+		print '已签到\n'
+		return True
 	# 替换 'amp;' 不然无法签到
 	addr=re.sub(r'amp;','',addr.group())
 	url='http://wapp.baidu.com'+addr
@@ -153,13 +142,19 @@ def sign(bar):
 		url=url,
 		headers=headers
 	)
-	res=urllib2.urlopen(req)
-	res=res.read()
+	try:
+		res=urllib2.urlopen(req,timeout=10)
+		res=res.read()
+	except urllib2.URLError:
+		print '访问超时!'
+		sign(bar)
+		return True
 	success=re.search(r'(?<="light">)\d(?=<\/span>)',res)
 	if not success:
 		print '%s吧,未知错误' % bar
-		return
+		return None
 	print '%s吧签到成功,经验+%s\n' % (bar,success.group())
+	return True
 	#	sign End
 
 # 启动函数
