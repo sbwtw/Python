@@ -1,28 +1,20 @@
 #!/usr/bin/python
 #coding=utf-8
 
+import os
 import re
 import time
 import urllib
 import urllib2
 import cookielib
 
-# 预定义账号密码
-usr=''
-pwd=''
 # headers
 headers={
-	'User-Agent':'Mozilla/5.0 (iPhone; U; CPU iPhone OS 4_0 like Mac OS X; en-us) AppleWebKit/532.9 (KHTML, like Gecko) Version/4.0.5 Mobile/8A293 Safari/6531.22.7'
+	'User-Agent':''
 }
-# 贴吧列表
-bars=[]
-
-
-
-print 'start working...'
 
 # 绑定cookie到opener
-cookie=cookielib.CookieJar()
+cookie=cookielib.MozillaCookieJar('cookie')
 opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cookie))
 urllib2.install_opener(opener)
 
@@ -30,8 +22,8 @@ urllib2.install_opener(opener)
 def getTime():
 	return int(time.time())
 
-# 启动函数,登陆贴吧,获得cookie
-def init(usr,pwd):
+# 登陆函数,登陆贴吧,获得cookie
+def login(usr,pwd):
 	# 首页
 	urllib2.urlopen('http://wapp.baidu.com')
 	# 分离cookie => uid
@@ -98,13 +90,14 @@ def init(usr,pwd):
 	else:
 		print '验证失败.'
 		return None
+	cookie.save()
 	return True
 	# 	== init End ==
 
 # 拉取'我喜欢的吧'列表
 def getBars():
-	# 贴吧列表放到全局共享
-	global bars
+	# 贴吧列表
+	bars=[]
 	print '拉取贴吧列表.'
 	# 记录拉取了几页
 	count=1
@@ -127,14 +120,65 @@ def getBars():
 		print '拉取完毕,共%d个吧需要签到' % len(bars)
 	else:
 		print '拉取贴吧列表失败.'
+		return None
+	return bars
 
-	print bars
+# 签到函数
+def sign(bar):
+	# 解码,不然无法打开
+	bar=bar.encode('utf8')
+	print '进入%s吧' % bar
+	headers['Referer']='http://wapp.baidu.com/f/m?kw='+bar
+	req=urllib2.Request(
+		url='http://wapp.baidu.com/f/?kw='+urllib.quote(bar),
+		headers=headers
+	)
+	res=urllib2.urlopen(req)
+	res=res.read()
+	# 签到地址
+	addr=re.search(r'(?<=<a href=")[^"]+(?=">签到)',res)
+	if not addr:
+		print '无法签到'
+		return
+	# 替换 'amp;' 不然无法签到
+	addr=re.sub(r'amp;','',addr.group())
+	url='http://wapp.baidu.com'+addr
+	req=urllib2.Request(
+		url=url,
+		headers=headers
+	)
+	res=urllib2.urlopen(req)
+	res=res.read()
+	success=re.search(r'(?<="light">)\d(?=<\/span>)',res)
+	if not success:
+		print '%s吧,未知错误' % bar
+	print '%s吧签到成功,经验+%s' % (bar,success.group())
+	#	sign End
+
+# 启动函数
+def init():
+	print 'start working...'
+	# 读取配置信息
+	if os.path.exists('cookie'):
+		cookie.load('cookie')
+	# 新建配置
+	else:
+		usr=raw_input('输入用户名: ')
+		pwd=raw_input('输入密码:   ')
+		if not login(usr,pwd):
+			return None
+	# 拉取吧列表
+	bars=getBars()
+	if bars:
+		# 开始签到
+		for bar in bars:
+			sign(bar)
+	else:
+		return None
 
 
 
-if init(usr,pwd):
-	getBars()
-
+init()
 
 
 
