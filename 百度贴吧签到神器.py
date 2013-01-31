@@ -1,6 +1,12 @@
 #!/usr/bin/python
 #coding=utf-8
 
+#
+#	Author: 石博文 <sbwtws@gmail.com>
+#	
+#	Android 下运行需要安装 PythonForAndroid.apk sl4a.apk
+#
+
 import os
 import re
 import time
@@ -138,7 +144,7 @@ def sign(bar):
 	# 签到地址
 	addr=re.search(r'(?<=<a href=")[^"]+(?=">签到)',res)
 	if not addr:
-		print '无法签到'
+		print '无法签到\n'
 		return
 	# 替换 'amp;' 不然无法签到
 	addr=re.sub(r'amp;','',addr.group())
@@ -152,7 +158,8 @@ def sign(bar):
 	success=re.search(r'(?<="light">)\d(?=<\/span>)',res)
 	if not success:
 		print '%s吧,未知错误' % bar
-	print '%s吧签到成功,经验+%s' % (bar,success.group())
+		return
+	print '%s吧签到成功,经验+%s\n' % (bar,success.group())
 	#	sign End
 
 # 启动函数
