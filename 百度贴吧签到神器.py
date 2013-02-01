@@ -3,8 +3,9 @@
 
 #
 #	Author: 石博文 <sbwtws@gmail.com>
-#	
-#	Android 下运行需要安装 PythonForAndroid.apk sl4a.apk
+#
+#	使用方法请参看wiki:
+#	https://github.com/sbwtw/Python/wiki/%E7%99%BE%E5%BA%A6%E8%B4%B4%E5%90%A7%E7%AD%BE%E5%88%B0%E7%A5%9E%E5%99%A8%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E
 #
 
 import os
@@ -101,7 +102,7 @@ def login(usr,pwd):
 	res=urllib2.urlopen(req)
 	res=res.read()
 	# 若返回页面中含有用户名,说明登陆成功
-	submit=re.search(usr,res)
+	submit=re.search('我爱逛的贴吧',res)
 	if submit:
 		print '登陆成功.'
 	else:
@@ -133,6 +134,7 @@ def getBars():
 
 # 签到函数,因为此函数经常访问网络,所以加上超时处理
 def sign(bar):
+	global bars
 	print '进入%s吧' % bar
 	headers['Referer']='http://wapp.baidu.com/f/m?kw='+bar
 	req=urllib2.Request(
@@ -148,7 +150,6 @@ def sign(bar):
 	# 签到地址
 	addr=re.search(r'(?<=<a href=")[^"]+(?=">签到)',res)
 	if not addr:
-		global bars
 		bars[bar]=False
 		return '%s吧已签到\n' % bar
 	# 替换 'amp;' 不然无法签到
@@ -167,7 +168,6 @@ def sign(bar):
 	success=re.search(r'(?<="light">)\d(?=<\/span>)',res)
 	if not success:
 		return '%s吧,未知错误\n' % bar
-	global bars
 	bars[bar]=False
 	return '%s吧签到成功,经验+%s\n' % (bar,success.group())
 	#	sign End
