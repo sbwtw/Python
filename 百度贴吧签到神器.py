@@ -5,7 +5,7 @@
 #	Author: 石博文 <sbwtws@gmail.com>
 #
 #	使用方法请参看wiki:
-#	https://github.com/sbwtw/Python/wiki/%E7%99%BE%E5%BA%A6%E8%B4%B4%E5%90%A7%E7%AD%BE%E5%88%B0%E7%A5%9E%E5%99%A8%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E
+#	https://github.com/sbwtw/Python/wiki/百度贴吧签到神器使用说明
 #
 
 import os
@@ -15,7 +15,6 @@ import urllib
 import urllib2
 import cPickle
 import cookielib
-import threading
 
 # headers
 headers={}
@@ -184,7 +183,7 @@ def init():
 		bars=cPickle.load(f)
 		f.close()
 		# 如果日期不相等,bars需要重新抓取
-		if day!=getDay():
+		if day!=str(getDay()):
 			bars={}
 	# 设置cookie
 	setCookie(usr)
@@ -207,14 +206,18 @@ def init():
 		return None
 	# 写配置文件
 	f=file(usr+'.conf','w')
-	cPickle.dump(getDay(),f)
+	cPickle.dump(str(getDay()),f)
 	cPickle.dump(bars,f)
 	f.close()
-	print '签到完成!'
+	print '签到完成!\n'
 	# 对签到情况检查
+	err=False
 	for bar in bars:
 		if bars[bar]:
-			print '%s吧签到失败' % bar
+			print '%s吧签到失败!' % bar
+			err=True
+	if err:
+		print '\n已记录签到失败的吧,请重新运行补签.'
 	os._exit(0)
 
 
