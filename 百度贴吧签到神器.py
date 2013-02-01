@@ -12,6 +12,7 @@ import re
 import time
 import urllib
 import urllib2
+import cPickle
 import cookielib
 import threading
 
@@ -19,31 +20,20 @@ import threading
 headers={}
 headers['User-Agent']=''
 
-# 每个线程共享的数据
-lock=threading.Lock()
+# 共享的数据
 bars={}
+cookie=None
 
-# 绑定cookie到opener
-cookie=cookielib.MozillaCookieJar('cookie')
-opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cookie))
-urllib2.install_opener(opener)
+# 初始化,绑定cookie到opener
+def setCookie(usr):
+	global cookie
+	cookie=cookielib.MozillaCookieJar(usr+'.cookie')
+	opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(cookie))
+	urllib2.install_opener(opener)
 
-# 每个签到的线程
-class thread(threading.Thread):
-	def __init__(self,lock,bars):
-		self.bars=bars
-		self.lock=lock
-		threading.Thread.__init__(self)
-	def run(self):
-		for bar in bars:
-			lock.acquire()
-			if bars[bar]:
-				bars[bar]=False
-				lock.release()
-				print sign(bar)
-			else:
-				lock.release()
-	# ==End==
+# 返回当前几号
+def getDay():
+	return time.gmtime().tm_mday
 
 # 返回10位数的时间戳
 def getTime():
@@ -143,19 +133,23 @@ def getBars():
 
 # 签到函数,因为此函数经常访问网络,所以加上超时处理
 def sign(bar):
+	print '进入%s吧' % bar
 	headers['Referer']='http://wapp.baidu.com/f/m?kw='+bar
 	req=urllib2.Request(
 		url='http://wapp.baidu.com/f/?kw='+urllib.quote(bar),
 		headers=headers
 	)
 	try:
-		res=urllib2.urlopen(req,timeout=10)
+		res=urllib2.urlopen(req,timeout=5)
 		res=res.read()
 	except:
+		print '%s吧访问超时!' % bar
 		return sign(bar)
 	# 签到地址
 	addr=re.search(r'(?<=<a href=")[^"]+(?=">签到)',res)
 	if not addr:
+		global bars
+		bars[bar]=False
 		return '%s吧已签到\n' % bar
 	# 替换 'amp;' 不然无法签到
 	addr=re.sub(r'amp;','',addr.group())
@@ -165,39 +159,63 @@ def sign(bar):
 		headers=headers
 	)
 	try:
-		res=urllib2.urlopen(req,timeout=10)
+		res=urllib2.urlopen(req,timeout=5)
 		res=res.read()
 	except:
+		print '%s吧访问超时!' % bar
 		return sign(bar)
 	success=re.search(r'(?<="light">)\d(?=<\/span>)',res)
 	if not success:
 		return '%s吧,未知错误\n' % bar
+	global bars
+	bars[bar]=False
 	return '%s吧签到成功,经验+%s\n' % (bar,success.group())
 	#	sign End
 
 # 启动函数
 def init():
 	print 'start working...'
-	# 读取配置信息
-	if os.path.exists('cookie'):
-		cookie.load('cookie')
-	# 新建配置
+	usr=raw_input('输入用户名:')
+	# 查询对应的用户配置文件
+	if os.path.exists(usr+'.conf'):
+		f=file(usr+'.conf')
+		day=cPickle.load(f)
+		global bars
+		bars=cPickle.load(f)
+		f.close()
+		# 如果日期不相等,bars需要重新抓取
+		if day!=getDay():
+			bars={}
+	# 设置cookie
+	setCookie(usr)
+	global cookie
+	if os.path.exists(usr+'.cookie'):
+		cookie.load(usr+'.cookie')
 	else:
-		usr=raw_input('输入用户名: ')
-		pwd=raw_input('输入密码:   ')
+		pwd=raw_input('输入密码:  ')
 		if not login(usr,pwd):
 			return None
-	# 拉取吧列表
-	global bars
-	getBars()
+	# 如果bars为空,则要重新抓取贴吧列表
+	if not bars:
+		getBars()
 	if bars:
-		global lock
-		# 开始签到,设置5个线程
-		for i in range(5):
-			newThread=thread(lock,bars)
-			newThread.start()
+		# 开始签到
+		for bar in bars:
+			if bars[bar]:
+				print sign(bar)
 	else:
 		return None
+	# 写配置文件
+	f=file(usr+'.conf','w')
+	cPickle.dump(getDay(),f)
+	cPickle.dump(bars,f)
+	f.close()
+	print '签到完成!'
+	# 对签到情况检查
+	for bar in bars:
+		if bars[bar]:
+			print '%s吧签到失败' % bar
+	os._exit(0)
 
 
 
