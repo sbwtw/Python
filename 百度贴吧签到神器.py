@@ -4,8 +4,12 @@
 #
 #	Author: 石博文 <sbwtws@gmail.com>
 #
-#	使用方法请参看wiki:
-#	https://github.com/sbwtw/Python/wiki/百度贴吧签到神器使用说明
+# Android使用说明:
+#	1.先安装"sl4a_r6.apk"
+#	2.把"百度贴吧签到神器.py"丢进sl4a下面一个叫script的文件夹
+#	3.安装PythonForAndroid_r4.apk
+#	4.打开PythonForAndroid,点击最上面的install
+#	5.打开sl4a,点击"百度贴吧签到神器"运行.
 #
 
 import os
